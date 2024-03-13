@@ -1,0 +1,9 @@
+﻿{
+	"name": "UnderYourSkin",
+	"version_number": "1.0.0",
+	"website_url": "",
+	"description": "Scroll to adjust zoom scale during gameplay",
+	"dependencies": [
+		"ReturnOfModding-ReturnOfModding-1.0.0"
+	]
+}
