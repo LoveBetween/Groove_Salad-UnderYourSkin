@@ -74,6 +74,10 @@ return {
             --eye
             [0x8596F6] = 7,
         },
+        --[[[survivors.funnyman] = {
+            --helmet dark spots
+            [0x798EBE] = 3,
+        },--]]
     },
     portrait_cull_colors_set = {
         [0x191615] = -1,
@@ -105,7 +109,17 @@ return {
             --helmet colors
             [0xC8CDAB] = 4,
             [0xBABD78] = 4,
-        }
+        },
+        [survivors.acrid] = {
+            --face shading
+            [0x423B5D] = 3,
+        },
+        [survivors.funnyman] = {
+            --helmet
+            [0xA7AEA7] = 3,
+            [0xCBCBB8] = 2,
+            [0xE2E1D7] = 2,
+        },
     },
     drifter_base_loadout_sprites = {
         gm.constants.sSelectDrifterW1,
