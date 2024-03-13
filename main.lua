@@ -15,15 +15,14 @@ end
 
 local asset_name_overrides = {}
 
----[[
 gm.post_script_hook(gm.constants.asset_get_index, function(self, other, result, args)
     local asset_name = args[1].value
     if asset_name_overrides[asset_name] ~= nil then
         result.value = asset_name_overrides[asset_name]
     end
 end)
---]]
 
+--[[
 local function get_color_info(color)
     return {
         color = color, hue = gm.colour_get_hue(color), saturation = gm.colour_get_saturation(color), value = gm.colour_get_value(color),
@@ -32,34 +31,31 @@ local function get_color_info(color)
         r = color & 0xFF 
     }
 end
+]]
 
-local function find_closest_color(input_color_info, options_info)
+---@alias color integer
+
+---@param target color
+---@param options color[]
+---@return integer
+---@return boolean
+local function find_closest_color(target, options)
     local best_dif = math.huge
     local result_index = -1
-    for index, color_info in ipairs(options_info) do
-        if color_info.color == input_color_info.color then
+    local target_r = target & 0xFF
+    local target_g = (target >> 8) & 0xFF
+    local target_b = (target >> 16) & 0xFF
+    for index, color in ipairs(options) do
+        if color == target then
             return index, true
         end
-        local r_mean = (color_info.r + input_color_info.r) // 2
-        local R = color_info.r - input_color_info.r
-        local G = color_info.g - input_color_info.g
-        local B = color_info.b - input_color_info.b
+        local r = color & 0xFF
+        local r_mean = (r + target_r) // 2
+        local R = r - target_r
+        local G = ((color >> 8) & 0xFF) - target_g
+        local B = ((color >> 16) & 0xFF) - target_b
         --fast rgb comparison https://stackoverflow.com/questions/9018016/how-to-compare-two-colors-for-similarity-difference
         local dif = (((512 + r_mean) * R * R) >> 8) + 4 * G * G + (((767 - r_mean) * B * B) >> 8)
-        --[[
-        if color_info.r + input_color_info.r < 255 then
-            dif = 2 * R * R + 4 * G * G + 3 * B * B
-        else
-            dif = 3 * R * R + 4 * G * G + 2 * B * B
-        end
-        --]]
-        --local hue_dif, saturation_dif, value_dif = color_info.hue - input_color_info.hue, color_info.saturation - input_color_info.saturation, color_info.value - input_color_info.value
-        --local dif = hue_dif * hue_dif * 6 + saturation_dif * saturation_dif * 1 + value_dif * value_dif * 3
-        --[[
-        local dif = (math.abs(color_info.hue - input_color_info.hue) * 6)
-        + math.abs(color_info.saturation - input_color_info.saturation)
-        + (math.abs(color_info.value - input_color_info.value) * 3)
-        --]]
         if dif < best_dif then
             best_dif = dif
             result_index = index
@@ -68,7 +64,21 @@ local function find_closest_color(input_color_info, options_info)
     return result_index, false
 end
 
-local function generate_palette_swapped_sprites(base_colors_info, palettes_colors_info, palette_swapped_colors, base_sprite, sub_image_start_index, sub_image_count, palettes_count,
+---@param base_colors color[]
+---@param palettes_colors table<integer, color[]>
+---@param palette_swapped_colors table<color, color[]>
+---@param base_sprite number
+---@param sub_image_start_index integer
+---@param sub_image_count integer
+---@param palettes_count integer
+---@param cull_sub_images integer
+---@param cull_top_pixels integer
+---@param cull_bottom_pixels integer
+---@param cull_side_pixels integer
+---@param cull_colors_set color[]
+---@param color_overrides table<color, integer>
+---@return table
+local function generate_palette_swapped_sprites(base_colors, palettes_colors, palette_swapped_colors, base_sprite, sub_image_start_index, sub_image_count, palettes_count,
     cull_sub_images, cull_top_pixels, cull_bottom_pixels, cull_side_pixels, cull_colors_set, color_overrides)
     local sprite_w = gm.sprite_get_width(base_sprite)
     local sprite_h = gm.sprite_get_height(base_sprite)
@@ -114,28 +124,29 @@ local function generate_palette_swapped_sprites(base_colors_info, palettes_color
                     swapped_colors = {}
                     --local bad_color = gm.surface_getpixel(sprites_surface, x, y)
                     --log.info("color " .. color .. ", bad color " .. bad_color)
-                    local color_info = get_color_info(color)
+                    --local color_info = get_color_info(color)
                     local closest_color_index, exact_match
                     if color_overrides and color_overrides[color] then
                         closest_color_index, exact_match = color_overrides[color], false
                     else
-                        closest_color_index, exact_match = find_closest_color(color_info, base_colors_info)
+                        closest_color_index, exact_match = find_closest_color(color, base_colors)
                     end
                     if exact_match then
                         for i = 1, palettes_count do
-                            swapped_colors[i] = (palettes_colors_info[i][closest_color_index].color | alpha)
-                            --swapped_colors[i] = 0xFF024A7C
+                            swapped_colors[i] = (palettes_colors[i][closest_color_index] | alpha)
                         end
                     else
-                        local base_color_info = base_colors_info[closest_color_index]
+                        local base_color = base_colors[closest_color_index]
                         --local hue_offset = base_color_info.hue - color_info.hue
-                        local saturation_offset = base_color_info.saturation - color_info.saturation
-                        local value_offset = base_color_info.value - color_info.value
+                        local saturation_offset =  gm.colour_get_saturation(base_color) - gm.colour_get_saturation(color)
+                        local value_offset = gm.colour_get_value(base_color) - gm.colour_get_value(color)
                         for i = 1, palettes_count do
-                            local palette_color_info = palettes_colors_info[i][closest_color_index]
-                            local palette_color = gm.make_colour_hsv(palette_color_info.hue, palette_color_info.saturation - saturation_offset, palette_color_info.value - value_offset)
-                            swapped_colors[i] = (palette_color | alpha)
-                            --swapped_colors[i] = 0xFF78BCC7
+                            local palette_color = palettes_colors[i][closest_color_index]
+                            swapped_colors[i] = (gm.make_colour_hsv(
+                                gm.colour_get_hue(palette_color),
+                                gm.colour_get_saturation(palette_color) - saturation_offset,
+                                gm.colour_get_value(palette_color) - value_offset
+                            ) | alpha)
                         end
                     end
                     palette_swapped_colors[color] = swapped_colors
@@ -165,80 +176,11 @@ local function generate_palette_swapped_sprites(base_colors_info, palettes_color
     return result
 end
 
---[[
-local survivor_loadout_culling_dimensions =
-{
-    [0] = { top = 40, bottom = 48, sides = 4 }, --commando
-    [1] = { top = 40, bottom = 48, sides = 6 }, --huntress
-    [2] = { top = 25, bottom = 48, sides = 1 }, --enforcer
-    [3] = { top = 35, bottom = 48, sides = 2 }, --bandit
-    [4] = { top = 38, bottom = 48, sides = 20 }, --hand
-    [5] = { top = 36, bottom = 52, sides = 1 }, --engi
-    [6] = { top = 42, bottom = 50, sides = 0 }, --miner
-    [7] = { top = 41, bottom = 50, sides = 5 }, --sniper
-    [8] = { top = 10, bottom = 48, sides = 0 }, --acrid
-    [9] = { top = 13, bottom = 50, sides = 3 }, --merc
-    [10] = { top = 40, bottom = 52, sides = 3 }, --loader
-    [11] = { top = 20, bottom = 50, sides = 0 }, --chef
-    [12] = { top = 44, bottom = 51, sides = 4 }, --pilot
-    [13] = { top = 20, bottom = 50, sides = 0 }, --artificer
-    [14] = { top = 48, bottom = 50, sides = 1 }, --drifter
-    [15] = { top = 44, bottom = 76, sides = 14 } --funnyman
-}
-
-local function copy(from_table, to_table)
-    for key, value in pairs(from_table) do
-        to_table[key] = value
-    end
-end
-
-local loadout_explicit_colors =
-{
-    [0x242220] = -1,
-    [0x373436] = -1,
-    [0x5A6365] = -1,
-    [0x3D4654] = -1,
-    [0x2E2B2A] = -1,
-    [0xB7BBC9] = -1,
-    [0x9193A2] = -1,
-    [0x3AC5C1] = -1,
-    [0x3D876E] = -1,
-    [0xFFFFFF] = -1,
-    [0x408988] = -1,
-    [0x3A77C3] = -1,
-    [0x1A4494] = -1,
-    [0x60637A] = -1,
-}
-
-local portrait_explicit_colors =
-{
-    [0x191615] = -1,
-    [0x77604F] = -1,
-    [0x5C483C] = -1,
-    [0x4C3B31] = -1,
-    [0x392923] = -1
-}
-
-local commando_portrait_explicit_colors =
-{
-    [0x7BA5B7] = 2,
-    [0x78BCC7] = 1,
-    [0x93CED2] = 1,
-    [0xAFE0DD] = 1
-}
-copy(portrait_explicit_colors, commando_portrait_explicit_colors)
-
-local survivor_portrait_explicit_colors =
-{
-    [0] = commando_portrait_explicit_colors
-}
-]]
-
-local function handle_drifter_loadout_sprites(palette_swapped_colors, sprite_loadout, loadout_culling_dimensions, loadout_color_overrides, base_colors_info, palettes_colors_info, start_palette_index, palette_count)
+local function handle_drifter_loadout_sprites(palette_swapped_colors, sprite_loadout, loadout_culling_dimensions, loadout_color_overrides, base_colors, palettes_colors, start_palette_index, palette_count)
     local sprite_loadout_top_palette_swaps = generate_palette_swapped_sprites
     (
-        base_colors_info,
-        palettes_colors_info,
+        base_colors,
+        palettes_colors,
         palette_swapped_colors,
         sprite_loadout,
         0, 16,
@@ -246,12 +188,12 @@ local function handle_drifter_loadout_sprites(palette_swapped_colors, sprite_loa
         2,
         loadout_culling_dimensions.top, loadout_culling_dimensions.bottom, loadout_culling_dimensions.sides,
         static_values.loadout_cull_colors_set,
-        nil
+        loadout_color_overrides
     )
     local sprite_loadout_bottom_palette_swaps = generate_palette_swapped_sprites
     (
-        base_colors_info,
-        palettes_colors_info,
+        base_colors,
+        palettes_colors,
         palette_swapped_colors,
         sprite_loadout,
         25, gm.sprite_get_number(sprite_loadout) - 25,
@@ -259,15 +201,15 @@ local function handle_drifter_loadout_sprites(palette_swapped_colors, sprite_loa
         0,
         loadout_culling_dimensions.top, loadout_culling_dimensions.bottom, loadout_culling_dimensions.sides,
         static_values.loadout_cull_colors_set,
-        nil
+        loadout_color_overrides
     )
     for _, base_loadout_sprite in ipairs(static_values.drifter_base_loadout_sprites) do
         log.info(base_loadout_sprite)
         local sprite_loadout_string = gm.sprite_get_name(base_loadout_sprite) .. "_PAL"
         local sprite_loadout_middle_palette_swaps = generate_palette_swapped_sprites
         (
-            base_colors_info,
-            palettes_colors_info,
+            base_colors,
+            palettes_colors,
             palette_swapped_colors,
             base_loadout_sprite,
             16, 9,
@@ -275,7 +217,7 @@ local function handle_drifter_loadout_sprites(palette_swapped_colors, sprite_loa
             0,
             loadout_culling_dimensions.top, loadout_culling_dimensions.bottom, loadout_culling_dimensions.sides,
             static_values.loadout_cull_colors_set,
-            nil
+            loadout_color_overrides
         )
         for i, middle_sprite in ipairs(sprite_loadout_middle_palette_swaps) do
             local combined_sprite_palette_swap = gm.sprite_duplicate(sprite_loadout_top_palette_swaps[i])
@@ -295,19 +237,18 @@ local function handle_drifter_loadout_sprites(palette_swapped_colors, sprite_loa
     end
 end
 
-local function setup_palette_swapped_sprites(survivor, survivor_id, base_colors_info, palettes_colors_info, start_palette_index, palette_count)
+local function setup_palette_swapped_sprites(survivor, survivor_id, base_colors, palettes_colors, start_palette_index, palette_count)
     local palette_swapped_colors = {}
-    ---[[loadout
     local sprite_loadout = gm.array_get(survivor, 13)
     local loadout_culling_dimensions = static_values.survivor_loadout_culling_dimensions[survivor_id] or static_values.default_loadout_culling_dimensions
     local loadout_color_overrides = static_values.survivor_loadout_color_overrides[survivor_id]
     if survivor_id == 14 then
-        handle_drifter_loadout_sprites(palette_swapped_colors, sprite_loadout, loadout_culling_dimensions, loadout_color_overrides, base_colors_info, palettes_colors_info, start_palette_index, palette_count)
+        handle_drifter_loadout_sprites(palette_swapped_colors, sprite_loadout, loadout_culling_dimensions, loadout_color_overrides, base_colors, palettes_colors, start_palette_index, palette_count)
     else
         local sprite_loadout_palette_swaps = generate_palette_swapped_sprites
         (
-            base_colors_info,
-            palettes_colors_info,
+            base_colors,
+            palettes_colors,
             palette_swapped_colors,
             sprite_loadout,
             0, gm.sprite_get_number(sprite_loadout),
@@ -323,14 +264,13 @@ local function setup_palette_swapped_sprites(survivor, survivor_id, base_colors_
             asset_name_overrides[asset_name_override] = sprite_loadout_palette_swaps[i]
         end
     end
-    --]]
+
     local portrait_color_overrides = static_values.survivor_portrait_color_overrides[survivor_id]
-    ---[[portrait
     local sprite_portrait = gm.array_get(survivor, 16)
     local sprite_portrait_palette_swaps = generate_palette_swapped_sprites
     (
-        base_colors_info,
-        palettes_colors_info,
+        base_colors,
+        palettes_colors,
         palette_swapped_colors,
         sprite_portrait,
         0, math.min(gm.sprite_get_number(sprite_portrait), 2),
@@ -345,13 +285,12 @@ local function setup_palette_swapped_sprites(survivor, survivor_id, base_colors_
         local asset_name_override = sprite_portrait_string .. math.tointeger(start_palette_index + i - 1)
         asset_name_overrides[asset_name_override] = sprite_portrait_palette_swaps[i]
     end
-    --]]
-    ---[[small portrait
+
     local sprite_portrait_small = gm.array_get(survivor, 17)
     local sprite_portrait_small_palette_swaps = generate_palette_swapped_sprites
     (
-        base_colors_info,
-        palettes_colors_info,
+        base_colors,
+        palettes_colors,
         palette_swapped_colors,
         sprite_portrait_small,
         0, 1,
@@ -367,7 +306,6 @@ local function setup_palette_swapped_sprites(survivor, survivor_id, base_colors_
         local asset_name_override = sprite_portrait_small_string .. math.tointeger(start_palette_index + i - 1)
         asset_name_overrides[asset_name_override] = sprite_portrait_small_palette_swaps[i]
     end
-    --]]
 end
 
 local function find_no_achievement_insertion_index(skin_family)
@@ -398,28 +336,28 @@ local function add_palette_skins(survivor, survivor_id, temp_palette_sprites)
         w, 0 --position
     )
     local insertion_index = find_no_achievement_insertion_index(skin_family)
-    local palettes_colors_info = {}
+    local palettes_colors = {}
     for i = 1, #temp_palette_sprites do
         local palette_index = w + i
         gm.draw_sprite(temp_palette_sprites[i], 0, palette_index, 0);
         gm.array_insert(skin_family.elements, insertion_index + i - 1, gm["@@NewGMLObject@@"](gm.constants.SurvivorSkinLoadoutUnlockable, gm.actor_skin_get_default_palette_swap(palette_index), -1.0))
         local palette_colors_info = {}
         for y = 1, h do
-            palette_colors_info[y] = get_color_info(gm.surface_getpixel(palette_surface, palette_index, y - 1))
+            palette_colors_info[y] = gm.surface_getpixel(palette_surface, palette_index, y - 1)
         end
-        palettes_colors_info[i] = palette_colors_info
+        palettes_colors[i] = palette_colors_info
     end
     local temp_surface_sprite = gm.sprite_create_from_surface(palette_surface, 0, 0, total_w, h, false, false, 0, 0);
     gm.sprite_assign(sprite_palette, temp_surface_sprite)
     gm.sprite_save(temp_surface_sprite, 0, path.combine(plugin_path, path.combine("generated", gm.array_get(survivor, 1) .. "_generated sprite.png")))
-    local base_colors_info = {}
+    local base_colors = {}
     for y = 1, h do
-        base_colors_info[y] = get_color_info(gm.surface_getpixel(palette_surface, 0, y - 1))
+        base_colors[y] = gm.surface_getpixel(palette_surface, 0, y - 1)
     end
     gm.surface_reset_target();
     gm.sprite_delete(temp_surface_sprite);
     gm.surface_free(palette_surface);
-    setup_palette_swapped_sprites(survivor, survivor_id, base_colors_info, palettes_colors_info, w + 1, #temp_palette_sprites)
+    setup_palette_swapped_sprites(survivor, survivor_id, base_colors, palettes_colors, w + 1, #temp_palette_sprites)
 end
 
 local function setup_survivor_palettes(survivor, survivor_id, files)
@@ -469,113 +407,3 @@ gm.pre_code_execute(function(self, other, code, result, flags)
         hooks[code.name](self)
     end
 end)
-
---[[
-        local custom_palette_swap_skin_id = custom_palette_swap_skins[index]
-        if custom_palette_swap_skin_id == nil then
-            local default_palette_swap_skin_id = gm.actor_skin_get_default_palette_swap(index)
-            local class_actor_skin = gm.variable_global_get("class_actor_skin")
-            local default_palette_swap_skin = gm.array_get(class_actor_skin, default_palette_swap_skin_id)
-            --custom_palette_swap_skin_id = default_palette_swap_skin_id
-            custom_palette_swap_skin_id = gm.actor_skin_create
-            (
-                "skinz",
-                gm.array_get(default_palette_swap_skin, 1)
-                --gm.array_get(default_palette_swap_skin, 2),
-                --gm.array_get(default_palette_swap_skin, 6)
-                --gm.array_get(default_palette_swap_skin, 3),
-                --gm.array_get(default_palette_swap_skin, 4),
-                --gm.array_get(default_palette_swap_skin, 5)
-            )
-            local custom_palette_swap_skin = gm.array_get(class_actor_skin, custom_palette_swap_skin_id)
-            for j = 3, gm.array_length(default_palette_swap_skin) do
-                gm.array_set(custom_palette_swap_skin, j - 1, gm.array_get(default_palette_swap_skin, j - 1))
-            end
-            local callable = gm.array_get(custom_palette_swap_skin, 4)
-            log.info(gm.instanceof(callable))
-            local names = gm.struct_get_names(callable)
-            for j = 1, gm.array_length(names) do
-                local name = gm.array_get(names, j - 1)
-                log.info(name)
-                log.info(gm.struct_get(callable, name))
-            end
-            local callable_value = gm.struct_get(callable, "callable_value")
-            pre_hooks[callable_value] = function(self, other, result, args)
-                log.info("something happened")
-                return false
-            end
-            log.info(pre_hooks[callable_value])
-        end
-        --]]
-        --gm.array_push(skin_family.elements, gm["@@NewGMLObject@@"](gm.constants.SurvivorSkinLoadoutUnlockable, gm.actor_skin_get_default_palette_swap(palette_index), -1.0))
---[[
-    local function generate_palette_swapped_sprites(base_colors_info, palettes_colors_info, palette_swapped_colors, base_sprite, sub_image_count, palettes_count,
-    cull_sub_images, cull_top_pixels, cull_bottom_pixels, cull_side_pixels, cull_colors_set, color_overrides)
-    local w = gm.sprite_get_width(base_sprite)
-    local h = gm.sprite_get_height(base_sprite)
-    local x_offset = gm.sprite_get_xoffset(base_sprite)
-    local y_offset = gm.sprite_get_yoffset(base_sprite)
-    local sprites_surface = gm.surface_create(w * palettes_count, h * sub_image_count);
-    log.info("got sprites_surface: " .. sprites_surface)
-    gm.surface_set_target(sprites_surface);
-    for palette_index = 0, palettes_count - 1 do
-        for sub_image = 0, sub_image_count - 1 do
-            --log.info("draw sprite")
-            gm.draw_sprite(base_sprite, sub_image, (palette_index * w) + x_offset, (sub_image * h) + y_offset);
-        end
-    end
-    log.info("finished drawing base sprites")
-    for sub_image = cull_sub_images, sub_image_count - 1 do
-        for x = cull_side_pixels, w - 1 - cull_side_pixels do
-            for y = (sub_image * h) + cull_top_pixels, ((sub_image + 1) * h) - 1 - cull_bottom_pixels do
-                local color = gm.surface_getpixel(sprites_surface, x, y)
-                if cull_colors_set[color] == nil then
-                    local swapped_colors = palette_swapped_colors[color]
-                    if swapped_colors == nil then
-                        swapped_colors = {}
-                        local color_info = get_color_info(color)
-                        local closest_color_index, exact_match
-                        if color_overrides and color_overrides[color] then
-                            closest_color_index, exact_match = color_overrides[color], false
-                        else
-                            closest_color_index, exact_match = find_closest_color(color_info, base_colors_info)
-                        end
-                        if exact_match then
-                            for i = 1, #palettes_colors_info do
-                                swapped_colors[i] = palettes_colors_info[i][closest_color_index].color
-                            end
-                        else
-                            local base_color_info = base_colors_info[closest_color_index]
-                            --local hue_offset = base_color_info.hue - color_info.hue
-                            local saturation_offset = base_color_info.saturation - color_info.saturation
-                            local value_offset = base_color_info.value - color_info.value
-                            for i = 1, #palettes_colors_info do
-                                local palette_color_info = palettes_colors_info[i][closest_color_index]
-                                swapped_colors[i] = gm.make_colour_hsv(palette_color_info.hue, palette_color_info.saturation - saturation_offset, palette_color_info.value - value_offset)
-                            end
-                        end
-                        palette_swapped_colors[color] = swapped_colors
-                    end
-                    for palette_index = 0, palettes_count - 1 do
-                        gm.draw_point_colour(x + (w * palette_index), y, swapped_colors[palette_index + 1])
-                    end
-                end
-            end
-        end
-    end
-    local result = {}
-    for palette_index = 0, palettes_count - 1 do
-        local palette_swapped_sprite = gm.sprite_create_from_surface(sprites_surface, palette_index * w, 0, w, h, false, false, x_offset, y_offset)
-        if sub_image_count > 1 then
-            for sub_image = 1, sub_image_count - 1 do
-                gm.sprite_add_from_surface(palette_swapped_sprite, sprites_surface, palette_index * w, sub_image * h, w, h, false, false)
-            end
-        end
-        result[palette_index + 1] = palette_swapped_sprite
-    end
-    gm.surface_save(sprites_surface, path.combine(plugin_path, "generated palette swaps", "swapped.png"))
-    gm.surface_reset_target();
-    gm.surface_free(sprites_surface);
-    return result
-end
---]]
