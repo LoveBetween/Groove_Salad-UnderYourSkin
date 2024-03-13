@@ -35,6 +35,24 @@ end
 
 ---@alias color integer
 
+---@param surface any
+---@param surface_width integer
+---@param surface_height integer
+---@return unknown
+local function get_buffer_for_surface(surface, surface_width, surface_height)
+    local buffer = gm.buffer_create(surface_width * surface_height * 4, 0 --[[buffer_fixed]], 1)
+    gm.buffer_get_surface(buffer, surface, 0)
+    return buffer
+end
+
+---@param x integer
+---@param y integer
+---@param width integer
+---@return integer
+local function get_buffer_pixel_offset(x, y, width)
+    return ((y * width) + x) * 4
+end
+
 ---@param target color
 ---@param options color[]
 ---@return integer
@@ -67,7 +85,7 @@ end
 ---@param base_colors color[]
 ---@param palettes_colors table<integer, color[]>
 ---@param palette_swapped_colors table<color, color[]>
----@param base_sprite number
+---@param base_sprite integer
 ---@param sub_image_start_index integer
 ---@param sub_image_count integer
 ---@param palettes_count integer
@@ -94,15 +112,17 @@ local function generate_palette_swapped_sprites(base_colors, palettes_colors, pa
         end
     end
     gm.surface_reset_target();
-    local buffer = gm.buffer_create(surface_h * surface_w * 4, 0--[[buffer_fixed]], 1)
-    gm.buffer_get_surface(buffer, sprites_surface, 0)
+    --local buffer = gm.buffer_create(surface_h * surface_w * 4, 0--[[buffer_fixed]], 1)
+    --gm.buffer_get_surface(buffer, sprites_surface, 0)
+    local buffer = get_buffer_for_surface(sprites_surface, surface_w, surface_h)
 
     for sub_image = cull_sub_images, sub_image_count - 1 do
         for y = (sub_image * sprite_h) + cull_top_pixels, ((sub_image + 1) * sprite_h) - 1 - cull_bottom_pixels do
-            local seek = ((y * surface_w) + cull_side_pixels) * 4
+            --local seek = ((y * surface_w) + cull_side_pixels) * 4
+            local seek = get_buffer_pixel_offset(cull_side_pixels, y, surface_w)
             gm.buffer_seek(buffer, 0--[[buffer_seek_start]], seek)
             for x = cull_side_pixels, sprite_w - 1 - cull_side_pixels do
-                local offset = ((y * surface_w) + x) * 4
+                --local offset = ((y * surface_w) + x) * 4
                 --local pixel = gm.buffer_peek(buffer, offset, 5--[[buffer_u32]])
                 local pixel = gm.buffer_read(buffer, 5--[[buffer_u32]])
                 --log.info(pixel)
@@ -110,10 +130,6 @@ local function generate_palette_swapped_sprites(base_colors, palettes_colors, pa
                 if alpha == 0 then
                     goto continue
                 end
-                --local blue = (pixel >> 16) & 0xFF
-                --local green = (pixel >> 8) & 0xFF
-	            --local red = pixel & 0xFF
-                --local color = gm.make_colour_rgb(red, green, blue)
                 local color = pixel & 0xFFFFFF
                 if cull_colors_set[color] then
                     goto continue
@@ -151,6 +167,7 @@ local function generate_palette_swapped_sprites(base_colors, palettes_colors, pa
                     end
                     palette_swapped_colors[color] = swapped_colors
                 end
+                local offset = get_buffer_pixel_offset(x, y, surface_w)
                 for palette_index = 1, palettes_count do
                     gm.buffer_poke(buffer, offset + (sprite_w * (palette_index - 1) * 4), 5--[[buffer_u32]], swapped_colors[palette_index])
                     --gm.draw_point_colour(x + (sprite_w * (palette_index)), y, swapped_colors[palette_index])
@@ -176,6 +193,14 @@ local function generate_palette_swapped_sprites(base_colors, palettes_colors, pa
     return result
 end
 
+---@param palette_swapped_colors table<color, color[]>
+---@param sprite_loadout integer
+---@param loadout_culling_dimensions table
+---@param loadout_color_overrides any
+---@param base_colors color[]
+---@param palettes_colors table<integer, color[]>
+---@param start_palette_index integer
+---@param palette_count integer
 local function handle_drifter_loadout_sprites(palette_swapped_colors, sprite_loadout, loadout_culling_dimensions, loadout_color_overrides, base_colors, palettes_colors, start_palette_index, palette_count)
     local sprite_loadout_top_palette_swaps = generate_palette_swapped_sprites
     (
@@ -237,11 +262,25 @@ local function handle_drifter_loadout_sprites(palette_swapped_colors, sprite_loa
     end
 end
 
-local function setup_palette_swapped_sprites(survivor, survivor_id, base_colors, palettes_colors, start_palette_index, palette_count)
+---@param survivor any
+---@param survivor_id integer
+---@param directory string
+---@param base_colors color[]
+---@param palettes_colors table<integer, color[]>
+---@param start_palette_index integer
+---@param palette_count integer
+local function setup_palette_swapped_sprites(survivor, survivor_id, directory, base_colors, palettes_colors, start_palette_index, palette_count)
     local palette_swapped_colors = {}
     local sprite_loadout = gm.array_get(survivor, 13)
     local loadout_culling_dimensions = static_values.survivor_loadout_culling_dimensions[survivor_id] or static_values.default_loadout_culling_dimensions
     local loadout_color_overrides = static_values.survivor_loadout_color_overrides[survivor_id]
+    if loadout_color_overrides then
+        log.info("loadout color overrides:")
+        for key, value in pairs(loadout_color_overrides) do
+            log.info(key)
+            log.info(value)
+        end
+    end
     if survivor_id == 14 then
         handle_drifter_loadout_sprites(palette_swapped_colors, sprite_loadout, loadout_culling_dimensions, loadout_color_overrides, base_colors, palettes_colors, start_palette_index, palette_count)
     else
@@ -318,12 +357,16 @@ local function find_no_achievement_insertion_index(skin_family)
     return length
 end
 
-local function add_palette_skins(survivor, survivor_id, temp_palette_sprites)
+---@param survivor any
+---@param survivor_id integer
+---@param directory string
+---@param palette_skins PaletteSkin[]
+local function add_palette_skins(survivor, survivor_id, directory, palette_skins)
     local sprite_palette = gm.array_get(survivor, 18)
     local skin_family = gm.array_get(survivor, 10)
     local w = gm.sprite_get_width(sprite_palette)
     local h = gm.sprite_get_height(sprite_palette)
-    local total_w = w + #temp_palette_sprites + 1
+    local total_w = w + #palette_skins + 1
     local palette_surface = gm.surface_create(total_w, h);
     log.info("Surface: " .. palette_surface)
     gm.surface_set_target(palette_surface);
@@ -336,42 +379,59 @@ local function add_palette_skins(survivor, survivor_id, temp_palette_sprites)
         w, 0 --position
     )
     local insertion_index = find_no_achievement_insertion_index(skin_family)
-    local palettes_colors = {}
-    for i = 1, #temp_palette_sprites do
+    for i = 1, #palette_skins do
         local palette_index = w + i
-        gm.draw_sprite(temp_palette_sprites[i], 0, palette_index, 0);
+        gm.draw_sprite(palette_skins[i].temp_palette_sprite, 0, palette_index, 0);
         gm.array_insert(skin_family.elements, insertion_index + i - 1, gm["@@NewGMLObject@@"](gm.constants.SurvivorSkinLoadoutUnlockable, gm.actor_skin_get_default_palette_swap(palette_index), -1.0))
-        local palette_colors_info = {}
-        for y = 1, h do
-            palette_colors_info[y] = gm.surface_getpixel(palette_surface, palette_index, y - 1)
-        end
-        palettes_colors[i] = palette_colors_info
     end
+    gm.surface_reset_target();
     local temp_surface_sprite = gm.sprite_create_from_surface(palette_surface, 0, 0, total_w, h, false, false, 0, 0);
     gm.sprite_assign(sprite_palette, temp_surface_sprite)
     gm.sprite_save(temp_surface_sprite, 0, path.combine(plugin_path, path.combine("generated", gm.array_get(survivor, 1) .. "_generated sprite.png")))
+    local buffer = get_buffer_for_surface(palette_surface, total_w, h)
+    ---@type color[]
     local base_colors = {}
-    for y = 1, h do
-        base_colors[y] = gm.surface_getpixel(palette_surface, 0, y - 1)
+    for y = 0, h - 1 do
+        base_colors[y + 1] = (gm.buffer_peek(buffer, get_buffer_pixel_offset(0, y, total_w), 5 --[[buffer_u32]]) & 0xFFFFFF)
     end
-    gm.surface_reset_target();
+    ---@type table<integer, color[]>
+    local palettes_colors = {}
+    for i = 1, #palette_skins do
+        local palette_colors = {}
+        for y = 0, h - 1 do
+            palette_colors[y + 1] = (gm.buffer_peek(buffer, get_buffer_pixel_offset(w + i, y, total_w), 5 --[[buffer_u32]]) & 0xFFFFFF)
+        end
+        palettes_colors[i] = palette_colors
+    end
+    gm.buffer_delete(buffer)
     gm.sprite_delete(temp_surface_sprite);
     gm.surface_free(palette_surface);
-    setup_palette_swapped_sprites(survivor, survivor_id, base_colors, palettes_colors, w + 1, #temp_palette_sprites)
+    setup_palette_swapped_sprites(survivor, survivor_id, directory, base_colors, palettes_colors, w + 1, #palette_skins)
 end
 
-local function setup_survivor_palettes(survivor, survivor_id, files)
-    local temp_palette_sprites = {}
+---@param survivor any
+---@param survivor_id integer
+---@param directory string
+---@param files string[]
+local function setup_survivor_palettes(survivor, survivor_id, directory, files)
+    ---@type PaletteSkin[]
+    local palette_skins = {}
     for _, file in ipairs(files) do
         local palette_sprite = gm.sprite_add(file, 1, false, false, 0, 0)
         if palette_sprite >= 0 then
-            table.insert(temp_palette_sprites, palette_sprite)
+            ---@class (exact) PaletteSkin
+            ---@field file_name string
+            ---@field temp_palette_sprite integer
+            local skin = {}
+            skin.file_name = path.filename(file)
+            skin.temp_palette_sprite = palette_sprite
+            table.insert(palette_skins, skin)
         end
     end
-    log.info("sprite count: " .. #temp_palette_sprites)
-    add_palette_skins(survivor, survivor_id, temp_palette_sprites)
-    for _, sprite in ipairs(temp_palette_sprites) do
-        gm.sprite_delete(sprite);
+    log.info("sprite count: " .. #palette_skins)
+    add_palette_skins(survivor, survivor_id, directory, palette_skins)
+    for _, skin in ipairs(palette_skins) do
+        gm.sprite_delete(skin.temp_palette_sprite);
     end
 end
 
@@ -389,7 +449,7 @@ local function init()
         end
         local success, files = pcall(path.get_files, directory_path)
         if success and #files > 0 then
-            setup_survivor_palettes(survivor, i, files)
+            setup_survivor_palettes(survivor, i, full_identifier, files)
         end
     end
     log.info("load time elapsed: " .. ((gm.get_timer() - start_time) / 1000000.0) .. " seconds")
