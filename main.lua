@@ -33,6 +33,18 @@ local function get_color_info(color)
 end
 ]]
 
+local function try_cache_sprites()
+    
+end
+
+---@param directory string
+---@param skin_file_name string
+---@param sprite_name string
+---@return string
+local function get_palette_sprite_cache_path(directory, skin_file_name, sprite_name)
+    return path.combine(sprite_cache_path, directory, skin_file_name, sprite_name .. ".png")
+end
+
 ---@alias color integer
 
 ---@param surface any
@@ -125,7 +137,6 @@ local function generate_palette_swapped_sprites(base_colors, palettes_colors, pa
                 --local offset = ((y * surface_w) + x) * 4
                 --local pixel = gm.buffer_peek(buffer, offset, 5--[[buffer_u32]])
                 local pixel = gm.buffer_read(buffer, 5--[[buffer_u32]])
-                --log.info(pixel)
                 local alpha = pixel & (0xFF << 24)
                 if alpha == 0 then
                     goto continue
@@ -134,13 +145,9 @@ local function generate_palette_swapped_sprites(base_colors, palettes_colors, pa
                 if cull_colors_set[color] then
                     goto continue
                 end
-                --local color = gm.surface_getpixel(sprites_surface, x, y)
                 local swapped_colors = palette_swapped_colors[color]
                 if swapped_colors == nil then
                     swapped_colors = {}
-                    --local bad_color = gm.surface_getpixel(sprites_surface, x, y)
-                    --log.info("color " .. color .. ", bad color " .. bad_color)
-                    --local color_info = get_color_info(color)
                     local closest_color_index, exact_match
                     if color_overrides and color_overrides[color] then
                         closest_color_index, exact_match = color_overrides[color], false
@@ -262,89 +269,75 @@ local function handle_drifter_loadout_sprites(palette_swapped_colors, sprite_loa
     end
 end
 
----@param survivor any
----@param survivor_id integer
+---comment
+---@param sprite integer
+---@param sub_image_count integer
+---@param cull_sub_images integer
+---@param culling_dimensions CullingDimensions
+---@param cull_colors_set color[]
+---@param color_overrides table<color, integer>
 ---@param directory string
+---@param palette_skins PaletteSkin[]
 ---@param base_colors color[]
 ---@param palettes_colors table<integer, color[]>
 ---@param start_palette_index integer
 ---@param palette_count integer
-local function setup_palette_swapped_sprites(survivor, survivor_id, directory, base_colors, palettes_colors, start_palette_index, palette_count)
-    local palette_swapped_colors = {}
-    local sprite_loadout = gm.array_get(survivor, 13)
-    local loadout_culling_dimensions = static_values.survivor_loadout_culling_dimensions[survivor_id] or static_values.default_loadout_culling_dimensions
-    local loadout_color_overrides = static_values.survivor_loadout_color_overrides[survivor_id]
-    if loadout_color_overrides then
-        log.info("loadout color overrides:")
-        for key, value in pairs(loadout_color_overrides) do
-            log.info(key)
-            log.info(value)
-        end
-    end
-    if survivor_id == 14 then
-        handle_drifter_loadout_sprites(palette_swapped_colors, sprite_loadout, loadout_culling_dimensions, loadout_color_overrides, base_colors, palettes_colors, start_palette_index, palette_count)
-    else
-        local sprite_loadout_palette_swaps = generate_palette_swapped_sprites
-        (
-            base_colors,
-            palettes_colors,
-            palette_swapped_colors,
-            sprite_loadout,
-            0, gm.sprite_get_number(sprite_loadout),
-            palette_count,
-            2,
-            loadout_culling_dimensions.top, loadout_culling_dimensions.bottom, loadout_culling_dimensions.sides,
-            static_values.loadout_cull_colors_set,
-            loadout_color_overrides
-        )
-        local sprite_loadout_string = gm.sprite_get_name(sprite_loadout) .. "_PAL"
-        for i = 1, #sprite_loadout_palette_swaps do
-            local asset_name_override = sprite_loadout_string .. math.tointeger(start_palette_index + i - 1)
-            asset_name_overrides[asset_name_override] = sprite_loadout_palette_swaps[i]
-        end
-    end
-
-    local portrait_color_overrides = static_values.survivor_portrait_color_overrides[survivor_id]
-    local sprite_portrait = gm.array_get(survivor, 16)
-    local sprite_portrait_palette_swaps = generate_palette_swapped_sprites
-    (
-        base_colors,
-        palettes_colors,
-        palette_swapped_colors,
-        sprite_portrait,
-        0, math.min(gm.sprite_get_number(sprite_portrait), 2),
-        palette_count,
-        0,
-        0, 0, 0,
-        static_values.portrait_cull_colors_set,
-        portrait_color_overrides
-    )
-    local sprite_portrait_string = gm.sprite_get_name(sprite_portrait) .. "_PAL"
-    for i = 1, #sprite_portrait_palette_swaps do
-        local asset_name_override = sprite_portrait_string .. math.tointeger(start_palette_index + i - 1)
-        asset_name_overrides[asset_name_override] = sprite_portrait_palette_swaps[i]
-    end
-
-    local sprite_portrait_small = gm.array_get(survivor, 17)
+---@param palette_swapped_colors table<color, color[]>
+local function setup_palette_swapped_sprite(sprite, sub_image_count, cull_sub_images, culling_dimensions, cull_colors_set, color_overrides,
+    directory, palette_skins, base_colors, palettes_colors, start_palette_index, palette_count, palette_swapped_colors)
+    local sprite_name = gm.sprite_get_name(sprite)
     local sprite_portrait_small_palette_swaps = generate_palette_swapped_sprites
     (
         base_colors,
         palettes_colors,
         palette_swapped_colors,
-        sprite_portrait_small,
-        0, 1,
+        sprite,
+        0, sub_image_count,
         palette_count,
-        0,
-        0, 0, 0,
-        static_values.portrait_cull_colors_set,
-        portrait_color_overrides
+        cull_sub_images,
+        culling_dimensions.top, culling_dimensions.bottom, culling_dimensions.sides,
+        cull_colors_set,
+        color_overrides
     )
-    local sprite_portrait_small_string = gm.sprite_get_name(sprite_portrait_small) .. "_PAL"
-    log.info(sprite_portrait_small_string)
+    local sprite_palette_string = sprite_name .. "_PAL"
     for i = 1, #sprite_portrait_small_palette_swaps do
-        local asset_name_override = sprite_portrait_small_string .. math.tointeger(start_palette_index + i - 1)
+        local asset_name_override = sprite_palette_string .. math.tointeger(start_palette_index + i - 1)
         asset_name_overrides[asset_name_override] = sprite_portrait_small_palette_swaps[i]
     end
+end
+
+---@param survivor any
+---@param survivor_id integer
+---@param directory string
+---@param palette_skins PaletteSkin[]
+---@param base_colors color[]
+---@param palettes_colors table<integer, color[]>
+---@param start_palette_index integer
+---@param palette_count integer
+local function setup_palette_swapped_sprites_for_survivor(survivor, survivor_id, directory, palette_skins, base_colors, palettes_colors, start_palette_index, palette_count)
+    local palette_swapped_colors = {}
+    local sprite_loadout = gm.array_get(survivor, 13)
+    local loadout_culling_dimensions = static_values.survivor_loadout_culling_dimensions[survivor_id] or static_values.default_loadout_culling_dimensions
+    local loadout_color_overrides = static_values.survivor_loadout_color_overrides[survivor_id]
+    if survivor_id == 14 then
+        handle_drifter_loadout_sprites(palette_swapped_colors, sprite_loadout, loadout_culling_dimensions, loadout_color_overrides, base_colors, palettes_colors, start_palette_index, palette_count)
+    else
+        setup_palette_swapped_sprite(
+            sprite_loadout, gm.sprite_get_number(sprite_loadout), 2, loadout_culling_dimensions, static_values.loadout_cull_colors_set, loadout_color_overrides,
+            directory, palette_skins, base_colors, palettes_colors, start_palette_index, palette_count, palette_swapped_colors
+        )
+    end
+    local portrait_color_overrides = static_values.survivor_portrait_color_overrides[survivor_id]
+    local sprite_portrait = gm.array_get(survivor, 16)
+    setup_palette_swapped_sprite(
+        sprite_portrait, math.min(gm.sprite_get_number(sprite_portrait), 2), 0, static_values.portrait_culling_dimensions, static_values.portrait_cull_colors_set, portrait_color_overrides,
+        directory, palette_skins, base_colors, palettes_colors, start_palette_index, palette_count, palette_swapped_colors
+    )
+    local sprite_portrait_small = gm.array_get(survivor, 17)
+    setup_palette_swapped_sprite(
+        sprite_portrait_small, 1, 0, static_values.portrait_culling_dimensions, static_values.portrait_cull_colors_set, portrait_color_overrides,
+        directory, palette_skins, base_colors, palettes_colors, start_palette_index, palette_count, palette_swapped_colors
+    )
 end
 
 local function find_no_achievement_insertion_index(skin_family)
@@ -406,7 +399,7 @@ local function add_palette_skins(survivor, survivor_id, directory, palette_skins
     gm.buffer_delete(buffer)
     gm.sprite_delete(temp_surface_sprite);
     gm.surface_free(palette_surface);
-    setup_palette_swapped_sprites(survivor, survivor_id, directory, base_colors, palettes_colors, w + 1, #palette_skins)
+    setup_palette_swapped_sprites_for_survivor(survivor, survivor_id, directory, palette_skins, base_colors, palettes_colors, w + 1, #palette_skins)
 end
 
 ---@param survivor any

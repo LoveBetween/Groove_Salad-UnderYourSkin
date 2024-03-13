@@ -16,7 +16,14 @@ local survivors = {
     drifter = 14,
     funnyman = 15,
 }
+
+---@class CullingDimensions
+---@field top integer
+---@field bottom integer
+---@field sides integer
+
 return {
+    ---@type CullingDimensions[]
     survivor_loadout_culling_dimensions = {
         [0] = { top = 40, bottom = 48, sides = 4 }, --commando
         [1] = { top = 40, bottom = 48, sides = 6 }, --huntress
@@ -35,7 +42,10 @@ return {
         [14] = { top = 42, bottom = 50, sides = 1 }, --drifter
         [15] = { top = 44, bottom = 76, sides = 14 }, --funnyman
     },
+    ---@type CullingDimensions
     default_loadout_culling_dimensions = { top = 10, bottom = 10, sides = 0 },
+    ---@type CullingDimensions
+    portrait_culling_dimensions = { top = 0, bottom = 0, sides = 0 },
     loadout_cull_colors_set = {
         [0x242220] = -1,
         [0x373436] = -1,
