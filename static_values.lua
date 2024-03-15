@@ -68,11 +68,26 @@ return {
             --body dark color
             [0x2D2A58] = 10,
         },
+        [survivors.bandit] = {
+            --coat collar dark spots
+            [0x494E50] = 6,
+            --eye and gun glow (taking whip color)
+            [0xEDC4FE] = 14,
+            [0x553952] = 14,
+            --coat shading
+            [0x303D50] = 7,
+        },
         [survivors.finger] = {
             --body highlights
             [0xC5D9D4] = 1,
             --eye
             [0x8596F6] = 7,
+        },
+        [survivors.loader] = {
+            --suit markings
+            [0x2C436A] = 6,
+            --suit highlights
+            [0xC1FFEE] = 5,
         },
         --[[[survivors.funnyman] = {
             --helmet dark spots
@@ -96,6 +111,23 @@ return {
             --body dark color
             [0x31395E] = 4,
         },
+        [survivors.bandit] = {
+            --hat highlight
+            [0xF0DDA8] = 1,
+            --face color
+            [0x36302E] = 4,
+            [0x544D4B] = 4,
+            --eye and gun glow (taking whip color)
+            [0xEDC4FE] = 14,
+            [0xAF809F] = 14,
+            [0x7F4B54] = 14,
+            [0xF3688F] = 14,
+            --coat collar highlight
+            [0x9AACAA] = 5,
+            --coat
+            [0x637577] = 7,
+            [0x546362] = 7,
+        },
         [survivors.finger] = {
             --face colors
             [0xA1AA92] = 1,
@@ -113,6 +145,35 @@ return {
         [survivors.acrid] = {
             --face shading
             [0x423B5D] = 3,
+        },
+        [survivors.merc] = {
+            --helmet
+            [0x8786BC] = 2,
+            [0x858AD6] = 2,
+            [0x73A3F8] = 1,
+            [0x95CBF6] = 1,
+            [0xB7F3F4] = 1,
+            --armor
+            [0x745938] = 3,
+            [0x886D3E] = 3,
+            [0x3D2B2C] = 3,
+        },
+        [survivors.loader] = {
+            --helmet dots
+            [0xF2ECA1] = 1,
+            [0xEFCE73] = 1,
+            --suit highlights
+            [0xC1FFEE] = 5,
+            --suit shadows
+            [0x3B475B] = 7,
+            --suit inner shadows
+            [0x2C201B] = 10,
+            --suit grime
+            [0x829295] = 11,
+            --clasps
+            [0xA1BCB9] = 10,
+            --inner suit midtones
+            [0x4B6E84] = 6
         },
         [survivors.funnyman] = {
             --helmet

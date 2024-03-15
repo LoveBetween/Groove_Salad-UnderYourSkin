@@ -324,7 +324,7 @@ local function setup_palette_swapped_sprites_for_survivor(survivor, survivor_id,
     else
         setup_palette_swapped_sprite(
             sprite_loadout, gm.sprite_get_number(sprite_loadout), 2, loadout_culling_dimensions, static_values.loadout_cull_colors_set, loadout_color_overrides,
-            directory, palette_skins, base_colors, palettes_colors, start_palette_index, palette_swapped_colors
+            directory, palette_skins, base_colors, palettes_colors, start_palette_index, {}
         )
     end
     local portrait_color_overrides = static_values.survivor_portrait_color_overrides[survivor_id]
