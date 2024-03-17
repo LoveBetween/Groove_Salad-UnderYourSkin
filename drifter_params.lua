@@ -2,6 +2,7 @@ local loadout_params = require "./loadout_params"
 
 ---@class (exact) BaseDrifterSelectSprite
 ---@field sprite number
+---@field sprite_name string?
 ---@field cull_colors_set set<color>
 
 local drifter_params = {}
@@ -65,6 +66,7 @@ drifter_params.drifter_base_loadout_sprites = {
 
 local drifter_cull_colors_set = loadout_params.survivor_cull_colors_sets[SURVIVOR.drifter]
 for _, base_loadout_sprite in ipairs(drifter_params.drifter_base_loadout_sprites) do
+    base_loadout_sprite.sprite_name = gm.sprite_get_name(base_loadout_sprite.sprite)
     table.copy(drifter_cull_colors_set, base_loadout_sprite.cull_colors_set)
 end
 

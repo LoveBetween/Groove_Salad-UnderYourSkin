@@ -31,12 +31,6 @@ function table.copy(src, dest)
     end
 end
 
-local plugin_path = _ENV["!plugins_mod_folder_path"]
-local config = require "./config"
-local loadout_params = require "./loadout_params"
-local portrait_params = require "./portrait_params"
-local drifter_params = require "./drifter_params"
-
 local asset_name_overrides = {}
 
 gm.post_script_hook(gm.constants.asset_get_index, function(self, other, result, args)
@@ -45,6 +39,19 @@ gm.post_script_hook(gm.constants.asset_get_index, function(self, other, result, 
         result.value = asset_name_overrides[asset_name]
     end
 end)
+
+---@param sprite number
+---@param base_sprite_name string
+---@param palette_skin PaletteSkin
+function set_palette_sprite_name(sprite, base_sprite_name, palette_skin)
+    asset_name_overrides[base_sprite_name .. "_PAL" .. math.tointeger(palette_skin.runtime_index)] = sprite
+end
+
+local plugin_path = _ENV["!plugins_mod_folder_path"]
+local config = require "./config"
+local loadout_params = require "./loadout_params"
+local portrait_params = require "./portrait_params"
+local drifter_params = require "./drifter_params"
 
 local sprite_caching
 if config.use_sprite_cache then
@@ -100,10 +107,10 @@ local function find_closest_color(target, options)
     return result_index, false
 end
 
----@class set<T> : table<T, any>
+---@class set<T> : table<T, boolean>
 
 ---@param base_colors color[]
----@param palettes_colors table<integer, color[]>
+---@param palettes_colors color[][]
 ---@param palette_swapped_colors table<color, color[]>
 ---@param base_sprite integer
 ---@param sub_image_start_index integer
@@ -216,9 +223,38 @@ end
 ---@param directory string
 ---@param palette_skins PaletteSkin[]
 ---@param base_colors color[]
----@param palettes_colors table<integer, color[]>
----@param start_palette_index integer
-local function handle_drifter_loadout_sprites(sprite_loadout, loadout_culling_dimensions, loadout_color_overrides, loadout_cull_colors_set, directory, palette_skins, base_colors, palettes_colors, start_palette_index)
+---@param palettes_colors color[][]
+local function handle_drifter_loadout_sprites(sprite_loadout, loadout_culling_dimensions, loadout_color_overrides, loadout_cull_colors_set, directory, palette_skins, base_colors, palettes_colors)
+    if sprite_caching then
+        ---@type set<PaletteSkin>
+        local required_palette_skins_set = {}
+        for _, base_loadout_sprite in ipairs(drifter_params.drifter_base_loadout_sprites) do
+            local x_offset = gm.sprite_get_xoffset(base_loadout_sprite.sprite)
+            local y_offset = gm.sprite_get_yoffset(base_loadout_sprite.sprite)
+            local remaining_palette_skins = sprite_caching.load_sprite_palettes(
+                directory,base_loadout_sprite.sprite_name,  palette_skins,
+                gm.sprite_get_number(base_loadout_sprite.sprite), x_offset, y_offset, palettes_colors
+            )
+            for _, remaining_palette_skin in ipairs(remaining_palette_skins) do
+                required_palette_skins_set[remaining_palette_skin] = true
+            end
+        end
+        ---@type PaletteSkin[]
+        local final_palette_skins = {}
+        ---@type color[][]
+        local final_palettes_colors = {}
+        for i, palette_skin in ipairs(palette_skins) do
+            if required_palette_skins_set[palette_skin] then
+                table.insert(final_palette_skins, palette_skin)
+                table.insert(final_palettes_colors, palettes_colors[i])
+            end
+        end
+        if #final_palette_skins == 0 then
+            return
+        end
+        palette_skins = final_palette_skins
+        palettes_colors = final_palettes_colors
+    end
     local palette_swapped_colors = {}
     local sprite_loadout_top_palette_swaps = generate_palette_swapped_sprites
     (
@@ -227,7 +263,7 @@ local function handle_drifter_loadout_sprites(sprite_loadout, loadout_culling_di
         palette_swapped_colors,
         sprite_loadout,
         0, 16,
-        #palettes_colors,
+        #palette_skins,
         2,
         loadout_culling_dimensions.top, loadout_culling_dimensions.bottom, loadout_culling_dimensions.sides,
         loadout_cull_colors_set,
@@ -241,7 +277,7 @@ local function handle_drifter_loadout_sprites(sprite_loadout, loadout_culling_di
         palette_swapped_colors,
         sprite_loadout,
         25, gm.sprite_get_number(sprite_loadout) - 25,
-        #palettes_colors,
+        #palette_skins,
         0,
         loadout_culling_dimensions.top, loadout_culling_dimensions.bottom, loadout_culling_dimensions.sides,
         loadout_cull_colors_set,
@@ -249,8 +285,7 @@ local function handle_drifter_loadout_sprites(sprite_loadout, loadout_culling_di
         loadout_color_overrides
     )
     for _, base_loadout_sprite in ipairs(drifter_params.drifter_base_loadout_sprites) do
-        log.info(base_loadout_sprite)
-        local sprite_loadout_string = gm.sprite_get_name(base_loadout_sprite.sprite) .. "_PAL"
+        --local sprite_loadout_string = gm.sprite_get_name(base_loadout_sprite.sprite) .. "_PAL"
         local sprite_loadout_middle_palette_swaps = generate_palette_swapped_sprites
         (
             base_colors,
@@ -258,27 +293,29 @@ local function handle_drifter_loadout_sprites(sprite_loadout, loadout_culling_di
             palette_swapped_colors,
             base_loadout_sprite.sprite,
             16, 9,
-            #palettes_colors,
+            #palette_skins,
             0,
             loadout_culling_dimensions.top, loadout_culling_dimensions.bottom, loadout_culling_dimensions.sides,
             base_loadout_sprite.cull_colors_set,
             false,
             loadout_color_overrides
         )
-        for i, middle_sprite in ipairs(sprite_loadout_middle_palette_swaps) do
-            local combined_sprite_palette_swap = gm.sprite_duplicate(sprite_loadout_top_palette_swaps[i])
+        for index, middle_sprite in ipairs(sprite_loadout_middle_palette_swaps) do
+            local combined_sprite_palette_swap = gm.sprite_duplicate(sprite_loadout_top_palette_swaps[index])
             gm.sprite_merge(combined_sprite_palette_swap, middle_sprite)
-            gm.sprite_merge(combined_sprite_palette_swap, sprite_loadout_bottom_palette_swaps[i])
-            local asset_name_override = sprite_loadout_string .. math.tointeger(start_palette_index + i - 1)
-            asset_name_overrides[asset_name_override] = combined_sprite_palette_swap
             gm.sprite_delete(middle_sprite)
+            gm.sprite_merge(combined_sprite_palette_swap, sprite_loadout_bottom_palette_swaps[index])
+
+            local palette_skin = palette_skins[index]
+            set_palette_sprite_name(combined_sprite_palette_swap, base_loadout_sprite.sprite_name, palette_skin)
+            if sprite_caching then
+                sprite_caching.save_sprite_palette(directory, base_loadout_sprite.sprite_name, combined_sprite_palette_swap, palette_skin)
+            end
         end
     end
-    for _, top_sprite_palette_swap in ipairs(sprite_loadout_top_palette_swaps) do
-        gm.sprite_delete(top_sprite_palette_swap)
-    end
-    for _, bottom_sprite_palette_swap in ipairs(sprite_loadout_bottom_palette_swaps) do
-        gm.sprite_delete(bottom_sprite_palette_swap)
+    for i = 1, #palette_skins do
+        gm.sprite_delete(sprite_loadout_top_palette_swaps[i])
+        gm.sprite_delete(sprite_loadout_bottom_palette_swaps[i])
     end
 end
 
@@ -292,52 +329,45 @@ end
 ---@param directory string
 ---@param palette_skins PaletteSkin[]
 ---@param base_colors color[]
----@param palettes_colors table<integer, color[]>
----@param start_palette_index integer
+---@param palettes_colors color[][]
 ---@param palette_swapped_colors table<color, color[]>
 local function setup_palette_swapped_sprite(sprite, sub_image_count, cull_sub_images, culling_dimensions, cull_colors_set, invert_cull_colors, color_overrides,
-    directory, palette_skins, base_colors, palettes_colors, start_palette_index, palette_swapped_colors)
+    directory, palette_skins, base_colors, palettes_colors, palette_swapped_colors)
     local sprite_name = gm.sprite_get_name(sprite)
-    local sprite_palette_swaps
-    local cached_sprites, cached_indices, remaining_indices
+    log.info(sprite_name)
     if sprite_caching then
         local x_offset = gm.sprite_get_xoffset(sprite)
         local y_offset = gm.sprite_get_yoffset(sprite)
-        cached_sprites, cached_indices, palettes_colors, remaining_indices = sprite_caching.load_cached_sprites(
-            directory, palette_skins, sprite_name,
+        palette_skins, palettes_colors = sprite_caching.load_sprite_palettes(
+            directory,sprite_name,  palette_skins,
             sub_image_count, x_offset, y_offset, palettes_colors
         )
-        if #remaining_indices == 0 then
-            sprite_palette_swaps = cached_sprites
-            goto naming
+        if #palette_skins == 0 then
+            log.info("all palettes cached")
+            return
         end
         palette_swapped_colors = {}
     end
-    sprite_palette_swaps = generate_palette_swapped_sprites
+    local sprite_palette_swaps = generate_palette_swapped_sprites
     (
         base_colors,
         palettes_colors,
         palette_swapped_colors,
         sprite,
         0, sub_image_count,
-        #palettes_colors,
+        #palette_skins,
         cull_sub_images,
         culling_dimensions.top, culling_dimensions.bottom, culling_dimensions.sides,
         cull_colors_set,
         invert_cull_colors,
         color_overrides
     )
-    if sprite_caching then
-        sprite_caching.cache_sprites(directory, sprite_name, sprite_palette_swaps, palette_skins, remaining_indices)
-        for index, palette_index in ipairs(cached_indices) do
-            table.insert(sprite_palette_swaps, palette_index, cached_sprites[index])
+    for index, sprite_palette_swap in ipairs(sprite_palette_swaps) do
+        local palette_skin = palette_skins[index]
+        set_palette_sprite_name(sprite_palette_swap, sprite_name, palette_skin)
+        if sprite_caching then
+            sprite_caching.save_sprite_palette(directory, sprite_name, sprite_palette_swap, palette_skin)
         end
-    end
-    ::naming::
-    local sprite_palette_string = sprite_name .. "_PAL"
-    for i = 1, #sprite_palette_swaps do
-        local asset_name_override = sprite_palette_string .. math.tointeger(start_palette_index + i - 1)
-        asset_name_overrides[asset_name_override] = sprite_palette_swaps[i]
     end
 end
 
@@ -346,19 +376,18 @@ end
 ---@param directory string
 ---@param palette_skins PaletteSkin[]
 ---@param base_colors color[]
----@param palettes_colors table<integer, color[]>
----@param start_palette_index integer
-local function setup_palette_swapped_sprites_for_survivor(survivor, survivor_id, directory, palette_skins, base_colors, palettes_colors, start_palette_index)
+---@param palettes_colors color[][]
+local function setup_palette_swapped_sprites_for_survivor(survivor, survivor_id, directory, palette_skins, base_colors, palettes_colors)
     local sprite_loadout = gm.array_get(survivor, 13)
     local loadout_culling_dimensions = loadout_params.survivor_culling_dimensions[survivor_id] or loadout_params.default_culling_dimensions
     local loadout_color_overrides = loadout_params.survivor_color_overrides[survivor_id]
     local loadout_cull_colors_set = loadout_params.survivor_cull_colors_sets[survivor_id] or loadout_params.default_cull_colors_set
     if survivor_id == SURVIVOR.drifter then
-        handle_drifter_loadout_sprites(sprite_loadout, loadout_culling_dimensions, loadout_color_overrides, loadout_cull_colors_set, directory, palette_skins, base_colors, palettes_colors, start_palette_index)
+        handle_drifter_loadout_sprites(sprite_loadout, loadout_culling_dimensions, loadout_color_overrides, loadout_cull_colors_set, directory, palette_skins, base_colors, palettes_colors)
     else
         setup_palette_swapped_sprite(
             sprite_loadout, gm.sprite_get_number(sprite_loadout), 2, loadout_culling_dimensions, loadout_cull_colors_set, survivor_id == SURVIVOR.enforcer, loadout_color_overrides,
-            directory, palette_skins, base_colors, palettes_colors, start_palette_index, {}
+            directory, palette_skins, base_colors, palettes_colors, {}
         )
     end
     local portrait_palette_swapped_colors = {}
@@ -366,12 +395,12 @@ local function setup_palette_swapped_sprites_for_survivor(survivor, survivor_id,
     local sprite_portrait = gm.array_get(survivor, 16)
     setup_palette_swapped_sprite(
         sprite_portrait, math.min(gm.sprite_get_number(sprite_portrait), 2), 0, portrait_params.culling_dimensions, portrait_params.cull_colors_set, false, portrait_color_overrides,
-        directory, palette_skins, base_colors, palettes_colors, start_palette_index, portrait_palette_swapped_colors
+        directory, palette_skins, base_colors, palettes_colors, portrait_palette_swapped_colors
     )
     local sprite_portrait_small = gm.array_get(survivor, 17)
     setup_palette_swapped_sprite(
         sprite_portrait_small, 1, 0, portrait_params.culling_dimensions, portrait_params.cull_colors_set, false, portrait_color_overrides,
-        directory, palette_skins, base_colors, palettes_colors, start_palette_index, portrait_palette_swapped_colors
+        directory, palette_skins, base_colors, palettes_colors, portrait_palette_swapped_colors
     )
 end
 
@@ -407,8 +436,9 @@ local function add_palette_skins(survivor, survivor_id, directory, palette_skins
         w, 0 --position
     )
     local insertion_index = find_no_achievement_insertion_index(skin_family)
-    for i = 1, #palette_skins do
+    for i, palette_skin in ipairs(palette_skins) do
         local palette_index = w + i
+        palette_skin.runtime_index = palette_index
         gm.draw_sprite(palette_skins[i].temp_palette_sprite, 0, palette_index, 0);
         gm.array_insert(skin_family.elements, insertion_index + i - 1, gm["@@NewGMLObject@@"](gm.constants.SurvivorSkinLoadoutUnlockable, gm.actor_skin_get_default_palette_swap(palette_index), -1.0))
     end
@@ -422,7 +452,7 @@ local function add_palette_skins(survivor, survivor_id, directory, palette_skins
     for y = 0, h - 1 do
         base_colors[y + 1] = (gm.buffer_peek(buffer, get_buffer_pixel_offset(0, y, total_w), 5 --[[buffer_u32]]) & 0xFFFFFF)
     end
-    ---@type table<integer, color[]>
+    ---@type color[][]
     local palettes_colors = {}
     for i = 1, #palette_skins do
         local palette_colors = {}
@@ -434,7 +464,7 @@ local function add_palette_skins(survivor, survivor_id, directory, palette_skins
     gm.buffer_delete(buffer)
     gm.sprite_delete(temp_surface_sprite);
     gm.surface_free(palette_surface);
-    setup_palette_swapped_sprites_for_survivor(survivor, survivor_id, directory, palette_skins, base_colors, palettes_colors, w + 1)
+    setup_palette_swapped_sprites_for_survivor(survivor, survivor_id, directory, palette_skins, base_colors, palettes_colors)
 end
 
 ---@param survivor any
@@ -449,7 +479,8 @@ local function setup_survivor_palettes(survivor, survivor_id, directory, files)
         if palette_sprite >= 0 then
             ---@class (exact) PaletteSkin
             ---@field file_name string
-            ---@field temp_palette_sprite integer
+            ---@field runtime_index integer?
+            ---@field temp_palette_sprite number
             local skin = {}
             skin.file_name = path.filename(file)
             skin.temp_palette_sprite = palette_sprite
