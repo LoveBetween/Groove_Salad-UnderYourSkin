@@ -169,6 +169,10 @@ loadout_params.survivor_color_overrides = {
         [0x2C2B28] = 4,
         [0x50534B] = 4,
     },
+    [SURVIVOR.arti] = {
+        --visor
+        [0xDBE6F6] = 1,
+    },
     --[[[survivors.funnyman] = {
         --helmet dark spots
         [0x798EBE] = 3,

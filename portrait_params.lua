@@ -136,6 +136,20 @@ portrait_params.survivor_color_overrides = {
         [0xA5A19D] = 8,
         [0xD0D4E2] = 8,
     },
+    [SURVIVOR.arti] = {
+        --flames and visor
+        [0xFFFFFF] = 12,
+        [0x8BD7FF] = 8,
+        [0x6DA6ED] = 8,
+        [0xA7ACED] = 9,
+        [0x6466B7] = 9,
+        --belt and collar
+        [0x6D6D99] = 4,
+        [0x434257] = 4,
+        --glow
+        [0x81B4CD] = 8,
+        [0x7FA4CA] = 8,
+    },
     [SURVIVOR.funnyman] = {
         --helmet
         [0xA7AEA7] = 3,
