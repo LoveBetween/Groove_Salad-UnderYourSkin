@@ -42,6 +42,7 @@ loadout_params.default_cull_colors_set = {
     [0xADCFCE] = true,
 }
 
+--[[
 local enforcer_cull_colors_set = {
     --red light
     [0x1783FF] = true,
@@ -61,6 +62,7 @@ local enforcer_cull_colors_set = {
     [0x4F39A9] = true,
 }
 table.copy(loadout_params.default_cull_colors_set, enforcer_cull_colors_set)
+-]]
 
 --enforcer has so many colors in the flashing animation that its easier to say what to include than what to cull
 local enforcer_include_colors_set = {
@@ -87,6 +89,10 @@ local enforcer_include_colors_set = {
     [0x987F6F] = true,
 }
 
+local miner_cull_colors_set = {}
+table.copy(loadout_params.default_cull_colors_set, miner_cull_colors_set)
+miner_cull_colors_set[0xADCFCE] = nil
+
 local drifter_cull_colors_set = {
     --medkit?
     [0xCCD1D8] = true,
@@ -106,6 +112,7 @@ table.copy(loadout_params.default_cull_colors_set, drifter_cull_colors_set)
 loadout_params.survivor_cull_colors_sets = {
     --[SURVIVOR.enforcer] = enforcer_cull_colors_set,
     [SURVIVOR.enforcer] = enforcer_include_colors_set,
+    [SURVIVOR.miner] = miner_cull_colors_set,
     [SURVIVOR.drifter] = drifter_cull_colors_set,
 }
 
@@ -135,11 +142,32 @@ loadout_params.survivor_color_overrides = {
         --eye
         [0x8596F6] = 7,
     },
+    [SURVIVOR.miner] = {
+        --helmet
+        [0x576B71] = 2,
+        [0xADCFCE] = 2,
+        --visor dark
+        [0x99D7EB] = 1,
+    },
+    [SURVIVOR.sniper] = {
+        --helmet
+        [0xC4919B] = 1,
+        [0xE3BFCD] = 1,
+    },
     [SURVIVOR.loader] = {
         --suit markings
         [0x2C436A] = 6,
         --suit highlights
         [0xC1FFEE] = 5,
+    },
+    [SURVIVOR.pilot] = {
+        --suit highlights
+        [0x687D60] = 6,
+        --collar shadows
+        [0x5D7A84] = 5,
+        --mask
+        [0x2C2B28] = 4,
+        [0x50534B] = 4,
     },
     --[[[survivors.funnyman] = {
         --helmet dark spots

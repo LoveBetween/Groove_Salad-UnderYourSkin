@@ -18,6 +18,11 @@ SURVIVOR = {
     funnyman = 15,
 }
 
+---@class CullingDimensions
+---@field top integer
+---@field bottom integer
+---@field sides integer
+
 ---@param src table
 ---@param dest table
 function table.copy(src, dest)

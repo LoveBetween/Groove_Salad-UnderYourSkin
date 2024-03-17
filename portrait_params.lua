@@ -54,6 +54,24 @@ portrait_params.survivor_color_overrides = {
         [0xC8CDAB] = 4,
         [0xBABD78] = 4,
     },
+    [SURVIVOR.miner] = {
+        --visor
+        [0x8BE9F7] = 1,
+        [0x89C1EA] = 1,
+        --armor
+        [0x5EC8C4] = 5,
+        [0x479895] = 6,
+        [0x306765] = 6,
+    },
+    [SURVIVOR.sniper] = {
+        --helmet
+        [0xDEABAF] = 1,
+        [0xE3BFCD] = 1,
+        [0xD4A2B7] = 1,
+        [0xD7B3CE] = 1,
+        --scope shadows
+        [0x785080] = 7,
+    },
     [SURVIVOR.acrid] = {
         --face shading
         [0x423B5D] = 3,
@@ -86,6 +104,37 @@ portrait_params.survivor_color_overrides = {
         [0xA1BCB9] = 10,
         --inner suit midtones
         [0x4B6E84] = 6
+    },
+    [SURVIVOR.pilot] = {
+        --mask
+        [0x312F2E] = 4,
+        [0x5A6362] = 4,
+        --collar shadows
+        [0x788795] = 5,
+        [0x686E7E] = 5,
+        --suit
+        [0x626B47] = 6,
+        [0x3B3B28] = 6,
+        --jumper and gloves
+        [0x5B4C32] = 7,
+        [0x8E7E59] = 7,
+        [0x554334] = 7,
+        --console
+        [0xD8AD82] = 13,
+        [0x9D8671] = 14,
+        --suit buttons
+        [0x859992] = 8,
+        --suit markings and arm
+        [0x89797D] = 8,
+        --arm shadows
+        [0x534E4F] = 9,
+        --arm highlights
+        [0xB7BBC9] = 8,
+        --breather and head notch
+        [0x3D3C3B] = 9,
+        [0x696163] = 9,
+        [0xA5A19D] = 8,
+        [0xD0D4E2] = 8,
     },
     [SURVIVOR.funnyman] = {
         --helmet
