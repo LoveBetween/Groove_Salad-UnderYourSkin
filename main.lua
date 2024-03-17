@@ -1,15 +1,37 @@
-local static_values = require("./static_values")
-local plugin_path = _ENV["!plugins_mod_folder_path"]
-local config_path = path.combine(paths.config(), "Groove_Salad-UnderYourSkin.cfg")
+---@enum survivor
+SURVIVOR = {
+    commando = 0,
+    huntress = 1,
+    enforcer = 2,
+    bandit = 3,
+    finger = 4,
+    engi = 5,
+    miner = 6,
+    sniper = 7,
+    acrid = 8,
+    merc = 9,
+    loader = 10,
+    chef = 11,
+    pilot = 12,
+    arti = 13,
+    drifter = 14,
+    funnyman = 15,
+}
 
-local exists, config = pcall(toml.decodeFromFile, config_path)
-if not exists then
-    log.info("Generating config file")
-    config = {
-        use_sprite_cache = false
-    }
-    pcall(toml.encodeToFile, config, config_path)
+---@param src table
+---@param dest table
+function table.copy(src, dest)
+    for key, value in pairs(src) do
+        dest[key] = value
+    end
 end
+
+local plugin_path = _ENV["!plugins_mod_folder_path"]
+--local static_values = require "./static_values"
+local config = require "./config"
+local loadout_params = require "./loadout_params"
+local portrait_params = require "./portrait_params"
+local drifter_params = require "./drifter_params"
 
 local asset_name_overrides = {}
 
@@ -22,7 +44,7 @@ end)
 
 local sprite_caching
 if config.use_sprite_cache then
-    sprite_caching = require("./sprite_caching")
+    sprite_caching = require "./sprite_caching"
 end
 
 ---@alias color integer
@@ -74,6 +96,8 @@ local function find_closest_color(target, options)
     return result_index, false
 end
 
+---@class set<T> : table<T, any>
+
 ---@param base_colors color[]
 ---@param palettes_colors table<integer, color[]>
 ---@param palette_swapped_colors table<color, color[]>
@@ -85,11 +109,12 @@ end
 ---@param cull_top_pixels integer
 ---@param cull_bottom_pixels integer
 ---@param cull_side_pixels integer
----@param cull_colors_set color[]
+---@param cull_colors_set set<color>
+---@param invert_cull_colors boolean
 ---@param color_overrides table<color, integer>
 ---@return table
 local function generate_palette_swapped_sprites(base_colors, palettes_colors, palette_swapped_colors, base_sprite, sub_image_start_index, sub_image_count, palettes_count,
-    cull_sub_images, cull_top_pixels, cull_bottom_pixels, cull_side_pixels, cull_colors_set, color_overrides)
+    cull_sub_images, cull_top_pixels, cull_bottom_pixels, cull_side_pixels, cull_colors_set, invert_cull_colors, color_overrides)
     local sprite_w = gm.sprite_get_width(base_sprite)
     local sprite_h = gm.sprite_get_height(base_sprite)
     local surface_w = sprite_w * palettes_count
@@ -122,7 +147,7 @@ local function generate_palette_swapped_sprites(base_colors, palettes_colors, pa
                     goto continue
                 end
                 local color = pixel & 0xFFFFFF
-                if cull_colors_set[color] then
+                if (cull_colors_set[color] == nil) == invert_cull_colors then
                     goto continue
                 end
                 local swapped_colors = palette_swapped_colors[color]
@@ -249,12 +274,12 @@ local function handle_drifter_loadout_sprites(palette_swapped_colors, sprite_loa
     end
 end
 
----comment
 ---@param sprite integer
 ---@param sub_image_count integer
 ---@param cull_sub_images integer
 ---@param culling_dimensions CullingDimensions
----@param cull_colors_set color[]
+---@param cull_colors_set set<color>
+---@param invert_cull_colors boolean
 ---@param color_overrides table<color, integer>
 ---@param directory string
 ---@param palette_skins PaletteSkin[]
@@ -262,7 +287,7 @@ end
 ---@param palettes_colors table<integer, color[]>
 ---@param start_palette_index integer
 ---@param palette_swapped_colors table<color, color[]>
-local function setup_palette_swapped_sprite(sprite, sub_image_count, cull_sub_images, culling_dimensions, cull_colors_set, color_overrides,
+local function setup_palette_swapped_sprite(sprite, sub_image_count, cull_sub_images, culling_dimensions, cull_colors_set, invert_cull_colors, color_overrides,
     directory, palette_skins, base_colors, palettes_colors, start_palette_index, palette_swapped_colors)
     local sprite_name = gm.sprite_get_name(sprite)
     local sprite_palette_swaps
@@ -291,6 +316,7 @@ local function setup_palette_swapped_sprite(sprite, sub_image_count, cull_sub_im
         cull_sub_images,
         culling_dimensions.top, culling_dimensions.bottom, culling_dimensions.sides,
         cull_colors_set,
+        invert_cull_colors,
         color_overrides
     )
     if sprite_caching then
@@ -317,25 +343,26 @@ end
 local function setup_palette_swapped_sprites_for_survivor(survivor, survivor_id, directory, palette_skins, base_colors, palettes_colors, start_palette_index)
     local palette_swapped_colors = {}
     local sprite_loadout = gm.array_get(survivor, 13)
-    local loadout_culling_dimensions = static_values.survivor_loadout_culling_dimensions[survivor_id] or static_values.default_loadout_culling_dimensions
-    local loadout_color_overrides = static_values.survivor_loadout_color_overrides[survivor_id]
-    if survivor_id == 14 then
+    local loadout_culling_dimensions = loadout_params.survivor_culling_dimensions[survivor_id] or loadout_params.default_culling_dimensions
+    local loadout_color_overrides = loadout_params.survivor_color_overrides[survivor_id]
+    local loadout_cull_colors_set = loadout_params.survivor_cull_colors_sets[survivor_id] or loadout_params.default_cull_colors_set
+    if survivor_id == SURVIVOR.drifter then
         --handle_drifter_loadout_sprites(palette_swapped_colors, sprite_loadout, loadout_culling_dimensions, loadout_color_overrides, base_colors, palettes_colors, start_palette_index, palette_count)
     else
         setup_palette_swapped_sprite(
-            sprite_loadout, gm.sprite_get_number(sprite_loadout), 2, loadout_culling_dimensions, static_values.loadout_cull_colors_set, loadout_color_overrides,
+            sprite_loadout, gm.sprite_get_number(sprite_loadout), 2, loadout_culling_dimensions, loadout_cull_colors_set, survivor_id == SURVIVOR.enforcer, loadout_color_overrides,
             directory, palette_skins, base_colors, palettes_colors, start_palette_index, {}
         )
     end
-    local portrait_color_overrides = static_values.survivor_portrait_color_overrides[survivor_id]
+    local portrait_color_overrides = portrait_params.survivor_color_overrides[survivor_id]
     local sprite_portrait = gm.array_get(survivor, 16)
     setup_palette_swapped_sprite(
-        sprite_portrait, math.min(gm.sprite_get_number(sprite_portrait), 2), 0, static_values.portrait_culling_dimensions, static_values.portrait_cull_colors_set, portrait_color_overrides,
+        sprite_portrait, math.min(gm.sprite_get_number(sprite_portrait), 2), 0, portrait_params.culling_dimensions, portrait_params.cull_colors_set, false, portrait_color_overrides,
         directory, palette_skins, base_colors, palettes_colors, start_palette_index, palette_swapped_colors
     )
     local sprite_portrait_small = gm.array_get(survivor, 17)
     setup_palette_swapped_sprite(
-        sprite_portrait_small, 1, 0, static_values.portrait_culling_dimensions, static_values.portrait_cull_colors_set, portrait_color_overrides,
+        sprite_portrait_small, 1, 0, portrait_params.culling_dimensions, portrait_params.cull_colors_set, false, portrait_color_overrides,
         directory, palette_skins, base_colors, palettes_colors, start_palette_index, palette_swapped_colors
     )
 end
@@ -429,7 +456,7 @@ local function setup_survivor_palettes(survivor, survivor_id, directory, files)
 end
 
 local function init()
-    log.info("Init!!")
+    log.info("init!")
     local class_survivor = gm.variable_global_get("class_survivor")
     local count_survivor = gm.variable_global_get("count_survivor")
     local start_time = gm.get_timer()
