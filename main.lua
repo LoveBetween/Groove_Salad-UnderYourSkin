@@ -277,7 +277,6 @@ local function handle_drifter_loadout_sprites(sprite_loadout, loadout_culling_di
         loadout_color_overrides
     )
     for _, base_loadout_sprite in ipairs(drifter_params.drifter_base_loadout_sprites) do
-        --local sprite_loadout_string = gm.sprite_get_name(base_loadout_sprite.sprite) .. "_PAL"
         local sprite_loadout_middle_palette_swaps = generate_palette_swapped_sprites
         (
             base_colors,
