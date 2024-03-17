@@ -19,7 +19,7 @@ end
 ---@param palettes_colors color[][]
 ---@return PaletteSkin[]
 ---@return color[][]
-sprite_caching.load_sprite_palettes = function(directory, base_sprite_name, palette_skins, sub_image_count, x_offset, y_offset, palettes_colors)
+sprite_caching.load_sprite_palettes = function (directory, base_sprite_name, palette_skins, sub_image_count, x_offset, y_offset, palettes_colors)
     local remaining_palette_skins = {}
     local remaining_palette_colors = {}
     for index, palette_skin in ipairs(palette_skins) do
@@ -41,7 +41,7 @@ end
 ---@param base_sprite_name string
 ---@param sprite integer
 ---@param palette_skin PaletteSkin
-sprite_caching.save_sprite_palette = function(directory, base_sprite_name, sprite, palette_skin)
+sprite_caching.save_sprite_palette = function (directory, base_sprite_name, sprite, palette_skin)
     gm.sprite_save_strip(sprite, sprite_caching.get_palette_sprite_cache_path(
         directory,
         palette_skin.file_name,

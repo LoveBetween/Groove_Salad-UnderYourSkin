@@ -42,28 +42,6 @@ loadout_params.default_cull_colors_set = {
     [0xADCFCE] = true,
 }
 
---[[
-local enforcer_cull_colors_set = {
-    --red light
-    [0x1783FF] = true,
-    [0x0044FF] = true,
-    [0x0000E1] = true,
-    [0x0000B6] = true,
-    [0x000078] = true,
-    --red highlights
-    [0x3D95FF] = true,
-    [0x2A2415] = true,
-    [0x3D46B5] = true,
-    [0x4EC5FF] = true,
-    [0x4CE3FF] = true,
-    [0x57A4FF] = true,
-    [0x3D87C0] = true,
-    [0x191699] = true,
-    [0x4F39A9] = true,
-}
-table.copy(loadout_params.default_cull_colors_set, enforcer_cull_colors_set)
--]]
-
 --enforcer has so many colors in the flashing animation that its easier to say what to include than what to cull
 local enforcer_include_colors_set = {
     --armor
