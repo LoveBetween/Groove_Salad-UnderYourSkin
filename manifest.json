@@ -1,9 +1,9 @@
 ﻿{
 	"name": "UnderYourSkin",
 	"version_number": "1.0.0",
-	"website_url": "",
-	"description": "Scroll to adjust zoom scale during gameplay",
+	"website_url": "https://github.com/Priscillalala/Groove_Salad-UnderYourSkin",
+	"description": "Create new skins from a single texture file! Includes 1 new skin for every survivor",
 	"dependencies": [
-		"ReturnOfModding-ReturnOfModding-1.0.0"
+		"ReturnOfModding-ReturnOfModding-1.0.7"
 	]
 }
