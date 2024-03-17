@@ -150,6 +150,17 @@ portrait_params.survivor_color_overrides = {
         [0x81B4CD] = 8,
         [0x7FA4CA] = 8,
     },
+    [SURVIVOR.drifter] = {
+        --bag
+        [0x544B5F] = 10,
+        --arm highlights
+        [0x5B564E] = 7,
+        --sleeping bag highlights
+        [0xB5A082] = 6,
+        [0xC5CBAE] = 6,
+        --hands
+        [0x919377] = 7,
+    },
     [SURVIVOR.funnyman] = {
         --helmet
         [0xA7AEA7] = 3,
