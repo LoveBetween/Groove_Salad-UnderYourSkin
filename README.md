@@ -12,12 +12,12 @@ To add a new skin, simply add an image to one of the survivor subfolders in `ski
 
 You can use the `dump_palette_sprites` config option to view all of the vanilla palettes. From there it should be pretty easy to figure out which index is associated with which color. Please contact me with any questions!
 
-The in-game survivor sprites are the only sprites that are dynamically re-skinned in vanilla. The loadout and portrait sprites have all been included manually. So, Under Your Skin will attempt to dynamically create loadout and portrait sprites based on your palette textures. It does a pretty good job, but the palettes usually have less color fidelity than these more detailed sprites. So, please let me know if anything seems out-of-place on the loadout or portrait sprites.
+The in-game survivor sprites are the only sprites that are dynamically re-skinned in vanilla. The vanilla loadout and portrait sprites are all pre-computed. So, Under Your Skin will attempt to dynamically create loadout and portrait sprites based on your palette textures. It does a pretty good job, but the palettes usually have less color fidelity than these more detailed sprites. Please let me know if anything looks out-of-place on the loadout or portrait sprites.
 
 ## Configuration
 A config file will generate in the `ReturnOfModding/config` folder:
+* `dump_palette_sprites`: If true, the palette sprite of each survivor (including any new skins) will be dumped in `ReturnOfModding/plugins_data/Groove_Salad-UnderYourSkin/sprite_dump`. Seeing the base palettes is very helpful when making your own skins!
 * `use_sprite_cache`: If true, palette swapped loadout and portrait sprites will be saved and loaded from a cache in `ReturnOfModding/plugins_data` instead of being generated at runtime. This will reduce load times, but loadout and portrait sprites **will not update to match changes in the palette texture**. You can manually delete the cached sprites to force them to re-generate.
-* `dump_palette_sprites`: If true, the palette sprite of each character (including any new skins) will be dumped in `ReturnOfModding/plugins_data/Groove_Salad-UnderYourSkin/sprite_dump`. Seeing the base palettes is very helpful when making your own skins!
 
 ## With Thanks To
 * Everyone who has contributed to the Return Of Modding project and related tooling
