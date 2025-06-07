@@ -480,28 +480,66 @@ local function setup_survivor_palettes(survivor, survivor_id, directory, files)
     end
 end
 
+---@param file string
+---@return boolean
+local function check_manifest(file)
+    if not path.exists(file) then return false end
+    local lines = {}
+    for line in io.lines(file) do 
+            if string.match(line, "Groove_Salad%-UnderYourSkin%-") then
+                return true
+            end
+    end
+    return false
+end
+
+---@return table
+local function find_dependant_plugins()
+    local dependant_plugin_paths = {}
+    local parent_plugin_path =  path.get_parent(plugin_path)
+    local success, subdirectories = pcall(path.get_directories, parent_plugin_path)
+    if success and #subdirectories > 0 then
+            for _, file in ipairs(subdirectories) do
+                if path.get_parent(file) == parent_plugin_path then
+                    local manifest_path = path.combine(file, "manifest.json")
+                    if check_manifest(manifest_path) then
+                        dependant_plugin_paths[#dependant_plugin_paths+1] = file
+                    end
+                end
+            end
+    end
+    return dependant_plugin_paths
+end
+
 local function init()
     log.info("init!")
     local class_survivor = gm.variable_global_get("class_survivor")
     local count_survivor = gm.variable_global_get("count_survivor")
     local start_time = gm.get_timer()
     local sprite_dump_path = path.combine(_ENV["!plugins_data_mod_folder_path"], "sprite_dump")
-    for i = 0, count_survivor - 1 do
-        local survivor = gm.array_get(class_survivor, i)
-        local full_identifier = gm.array_get(survivor, 0) .. "." .. gm.array_get(survivor, 1)
-        local directory_path = path.combine(plugin_path, "skins", full_identifier)
-        if gm.directory_exists(directory_path) == .0 then
-            gm.directory_create(directory_path)
-        end
-        local success, files = pcall(path.get_files, directory_path)
-        if success and #files > 0 then
-            setup_survivor_palettes(survivor, i, full_identifier, files)
-        end
-        if config.dump_palette_sprites then
-            local sprite_palette = gm.array_get(survivor, 18)
-            gm.sprite_save(sprite_palette, 0, path.combine(sprite_dump_path, gm.sprite_get_name(sprite_palette) .. ".png"))
+
+    local plugins_paths = find_dependant_plugins()
+    plugins_paths[#plugins_paths + 1] = plugin_path
+    for _, current_plugin_path in ipairs(plugins_paths) do
+        
+        for i = 0, count_survivor - 1 do
+            local survivor = gm.array_get(class_survivor, i)
+            local full_identifier = gm.array_get(survivor, 0) .. "." .. gm.array_get(survivor, 1)
+            local directory_path = path.combine(current_plugin_path, "skins", full_identifier)
+            if gm.directory_exists(directory_path) == .0 then
+                gm.directory_create(directory_path)
+            end
+            local success, files = pcall(path.get_files, directory_path)
+            if success and #files > 0 then
+                setup_survivor_palettes(survivor, i, full_identifier, files)
+            end
+            if config.dump_palette_sprites then
+                local sprite_palette = gm.array_get(survivor, 18)
+                gm.sprite_save(sprite_palette, 0, path.combine(sprite_dump_path, gm.sprite_get_name(sprite_palette) .. ".png"))
+            end
         end
     end
+    
     log.info("load time elapsed: " .. ((gm.get_timer() - start_time) / 1000000.0) .. " seconds")
 end
 
